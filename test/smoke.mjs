@@ -31,7 +31,7 @@ const transport = new StdioClientTransport({
   },
 });
 
-const client = new Client({ name: "foundry-rest-api-mcp-smoke-test", version: "0.3.0" });
+const client = new Client({ name: "foundry-rest-api-mcp-smoke-test", version: "0.3.1" });
 const expectedTools = [
   "foundry_add_effect", "foundry_add_to_encounter", "foundry_clear_chat", "foundry_create_canvas_documents",
   "foundry_create_actor_embedded_documents", "foundry_create_entity", "foundry_create_folder", "foundry_create_scene", "foundry_delete_actor_embedded_documents", "foundry_delete_canvas_document",
@@ -78,7 +78,8 @@ try {
   assert.equal(requests[1].headers["x-api-key"], "smoke-test-key");
   assert.deepEqual(JSON.parse(requests[1].body), { entityType: "Actor", data: { name: "Ada" } });
   assert.deepEqual(JSON.parse(requests[2].body), { data: { name: "New name" } });
-  assert.deepEqual(JSON.parse(requests[4].body), { uuid: "Actor.ada", data: { items: [{ name: "Rope", type: "loot" }] } });
+  assert.equal(requests[4].url, "/update?clientId=default-client&uuid=Actor.ada");
+  assert.deepEqual(JSON.parse(requests[4].body), { data: { items: [{ name: "Rope", type: "loot" }] } });
   assert.equal(requests[5].url, "/update?clientId=default-client&uuid=Actor.ada.Item.rope-1");
   assert.deepEqual(JSON.parse(requests[5].body), { data: { name: "Silk Rope" } });
   assert.equal(requests[6].url, "/delete?clientId=default-client&uuid=Actor.ada.Item.rope-1");

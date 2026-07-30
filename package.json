@@ -1,6 +1,6 @@
 {
   "name": "foundry-rest-api-mcp",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "MCP server for the FoundryVTT REST API Relay",
   "license": "MIT",

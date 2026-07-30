@@ -45,7 +45,7 @@ function textResult(value: string) {
   return { content: [{ type: "text" as const, text: value }] };
 }
 
-const server = new McpServer({ name: "foundry-rest-api-mcp", version: "0.3.0" });
+const server = new McpServer({ name: "foundry-rest-api-mcp", version: "0.3.1" });
 
 const scope = {
   clientId: z.string().optional().describe("Foundry client ID; defaults to FOUNDRY_CLIENT_ID."),
@@ -118,7 +118,7 @@ server.tool(
   async ({ actorUuid, documentType, documents, clientId, userId }) => {
     const query = omitUndefined({ clientId: clientId ?? defaultClientId, userId });
     if (documentType === "Item") {
-      return textResult(await request("PUT", "/update", query, { uuid: actorUuid, data: { items: documents } }));
+      return textResult(await request("PUT", "/update", { ...query, uuid: actorUuid }, { data: { items: documents } }));
     }
     const results = await Promise.all(documents.map((effectData) => request("POST", "/effects", query, { uuid: actorUuid, effectData })));
     return textResult(JSON.stringify(results));

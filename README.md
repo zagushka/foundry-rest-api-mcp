@@ -35,7 +35,7 @@ This project supports the relay's optional `clientId` and `userId` request scopi
 command = "npx"
 args = [
   "--yes",
-  "github:zagushka/foundry-rest-api-mcp#v0.3.0"
+  "github:zagushka/foundry-rest-api-mcp#v0.3.1"
 ]
 
 [mcp_servers.foundry.env]
@@ -67,7 +67,7 @@ If Codex should inherit variables already available in its environment, use `env
 command = "npx"
 args = [
   "--yes",
-  "github:zagushka/foundry-rest-api-mcp#v0.3.0"
+  "github:zagushka/foundry-rest-api-mcp#v0.3.1"
 ]
 env_vars = [
   "FOUNDRY_REST_API_BASE_URL",
