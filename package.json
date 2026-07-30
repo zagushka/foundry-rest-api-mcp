@@ -1,11 +1,13 @@
 {
   "name": "foundry-rest-api-mcp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "Read-only MCP server for the FoundryVTT REST API Relay",
+  "description": "MCP server for the FoundryVTT REST API Relay",
+  "license": "MIT",
   "keywords": [
     "codex",
-    "foundry-vtt",
+    "foundryvtt",
+    "foundry-rest-api",
     "mcp",
     "model-context-protocol"
   ],

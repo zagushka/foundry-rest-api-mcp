@@ -45,7 +45,7 @@ function textResult(value: string) {
   return { content: [{ type: "text" as const, text: value }] };
 }
 
-const server = new McpServer({ name: "foundry-rest-api-mcp", version: "0.2.0" });
+const server = new McpServer({ name: "foundry-rest-api-mcp", version: "0.3.0" });
 
 const scope = {
   clientId: z.string().optional().describe("Foundry client ID; defaults to FOUNDRY_CLIENT_ID."),
@@ -53,6 +53,11 @@ const scope = {
 };
 const json = z.record(z.unknown()).describe("JSON object accepted by Foundry.");
 const canvasData = z.union([json, z.array(json)]).describe("One canvas document or an array of documents.");
+const actorEmbeddedDocumentType = z.enum(["Item", "ActiveEffect"]);
+const actorEmbeddedDocument = json.refine(
+  (document) => typeof document._id === "string" || typeof document.id === "string",
+  "Each document must include its Foundry _id or id.",
+);
 const annotations = {
   read: { readOnlyHint: true },
   write: { readOnlyHint: false },
@@ -105,6 +110,48 @@ tool("foundry_search", "Search world entities and compendiums.", { ...scope, que
 tool("foundry_create_entity", "Create a Foundry world entity.", { ...scope, entityType: z.string().min(1), data: json, folder: z.string().optional(), keepId: z.boolean().optional(), override: z.boolean().optional() }, "POST", "/create", ["clientId", "userId"], "write");
 tool("foundry_update_entity", "Update a Foundry entity by UUID or the current selection.", { ...scope, uuid: z.string().optional(), selected: z.boolean().optional(), actor: z.boolean().optional(), data: json }, "PUT", "/update", ["clientId", "userId", "uuid", "selected", "actor"], "write");
 tool("foundry_delete_entity", "Delete a Foundry entity by UUID or the current selection.", { ...scope, uuid: z.string().optional(), selected: z.boolean().optional() }, "DELETE", "/delete", ["clientId", "userId", "uuid", "selected"], "destructive");
+server.tool(
+  "foundry_create_actor_embedded_documents",
+  "Add Items or ActiveEffects to one actor. Item creation uses the relay's supported Actor items upsert.",
+  { ...scope, actorUuid: z.string().min(1).describe("Actor UUID, for example Actor.abc123."), documentType: actorEmbeddedDocumentType, documents: z.array(json).min(1) },
+  annotations.write,
+  async ({ actorUuid, documentType, documents, clientId, userId }) => {
+    const query = omitUndefined({ clientId: clientId ?? defaultClientId, userId });
+    if (documentType === "Item") {
+      return textResult(await request("PUT", "/update", query, { uuid: actorUuid, data: { items: documents } }));
+    }
+    const results = await Promise.all(documents.map((effectData) => request("POST", "/effects", query, { uuid: actorUuid, effectData })));
+    return textResult(JSON.stringify(results));
+  },
+);
+server.tool(
+  "foundry_update_actor_embedded_documents",
+  "Update Items or ActiveEffects embedded in one actor.",
+  { ...scope, actorUuid: z.string().min(1).describe("Actor UUID, for example Actor.abc123."), documentType: actorEmbeddedDocumentType, documents: z.array(actorEmbeddedDocument).min(1) },
+  annotations.write,
+  async ({ actorUuid, documentType, documents, clientId, userId }) => {
+    const query = omitUndefined({ clientId: clientId ?? defaultClientId, userId });
+    const results = await Promise.all(documents.map((document) => {
+      const id = String(document._id ?? document.id);
+      const { _id, id: ignoredId, ...data } = document;
+      return request("PUT", "/update", { ...query, uuid: `${actorUuid}.${documentType}.${id}` }, { data });
+    }));
+    return textResult(JSON.stringify(results));
+  },
+);
+server.tool(
+  "foundry_delete_actor_embedded_documents",
+  "Delete Items or ActiveEffects embedded in one actor.",
+  { ...scope, actorUuid: z.string().min(1).describe("Actor UUID, for example Actor.abc123."), documentType: actorEmbeddedDocumentType, documentIds: z.array(z.string().min(1)).min(1) },
+  annotations.destructive,
+  async ({ actorUuid, documentType, documentIds, clientId, userId }) => {
+    const query = omitUndefined({ clientId: clientId ?? defaultClientId, userId });
+    const results = await Promise.all(documentIds.map((documentId) =>
+      request("DELETE", "/delete", { ...query, uuid: `${actorUuid}.${documentType}.${documentId}` }),
+    ));
+    return textResult(JSON.stringify(results));
+  },
+);
 tool("foundry_get_folder", "Get a folder and its contents by name.", { ...scope, name: z.string().min(1) }, "GET", "/get-folder", ["clientId", "userId", "name"]);
 tool("foundry_create_folder", "Create a Foundry folder.", { ...scope, name: z.string().min(1), folderType: z.string().min(1), parentFolderId: z.string().optional() }, "POST", "/create-folder", ["clientId", "userId"], "write");
 tool("foundry_delete_folder", "Delete a Foundry folder; deleteAll also deletes its contents.", { ...scope, folderId: z.string().min(1), deleteAll: z.boolean().optional() }, "DELETE", "/delete-folder", ["clientId", "userId", "folderId", "deleteAll"], "destructive");

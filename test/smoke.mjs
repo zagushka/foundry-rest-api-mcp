@@ -31,10 +31,10 @@ const transport = new StdioClientTransport({
   },
 });
 
-const client = new Client({ name: "foundry-rest-api-mcp-smoke-test", version: "0.2.0" });
+const client = new Client({ name: "foundry-rest-api-mcp-smoke-test", version: "0.3.0" });
 const expectedTools = [
   "foundry_add_effect", "foundry_add_to_encounter", "foundry_clear_chat", "foundry_create_canvas_documents",
-  "foundry_create_entity", "foundry_create_folder", "foundry_create_scene", "foundry_delete_canvas_document",
+  "foundry_create_actor_embedded_documents", "foundry_create_entity", "foundry_create_folder", "foundry_create_scene", "foundry_delete_actor_embedded_documents", "foundry_delete_canvas_document",
   "foundry_delete_chat_message", "foundry_delete_entity", "foundry_delete_folder", "foundry_delete_scene",
   "foundry_end_encounter", "foundry_get_canvas_documents", "foundry_get_effects", "foundry_get_entity",
   "foundry_get_folder", "foundry_get_last_roll", "foundry_get_scenes", "foundry_get_selected_tokens",
@@ -43,7 +43,7 @@ const expectedTools = [
   "foundry_next_round", "foundry_next_turn", "foundry_previous_round", "foundry_previous_turn",
   "foundry_remove_effect", "foundry_remove_from_encounter", "foundry_roll", "foundry_search", "foundry_select_tokens",
   "foundry_send_chat_message", "foundry_start_encounter", "foundry_switch_scene", "foundry_update_canvas_document",
-  "foundry_update_entity", "foundry_update_scene",
+  "foundry_update_actor_embedded_documents", "foundry_update_entity", "foundry_update_scene",
 ].sort();
 
 try {
@@ -55,6 +55,7 @@ try {
   assert.equal(byName.get("foundry_get_scenes")?.annotations?.readOnlyHint, true);
   assert.equal(byName.get("foundry_create_entity")?.annotations?.readOnlyHint, false);
   assert.equal(byName.get("foundry_delete_scene")?.annotations?.destructiveHint, true);
+  assert.equal(byName.get("foundry_delete_actor_embedded_documents")?.annotations?.destructiveHint, true);
   assert.equal(byName.get("foundry_clear_chat")?.annotations?.destructiveHint, true);
 
   const search = await client.callTool({ name: "foundry_search", arguments: { query: "Ada", limit: 5 } });
@@ -62,6 +63,9 @@ try {
   await client.callTool({ name: "foundry_create_entity", arguments: { clientId: "client-1", entityType: "Actor", data: { name: "Ada" } } });
   await client.callTool({ name: "foundry_update_scene", arguments: { sceneId: "scene-1", data: { name: "New name" } } });
   await client.callTool({ name: "foundry_delete_canvas_document", arguments: { documentType: "tokens", documentId: "token-1" } });
+  await client.callTool({ name: "foundry_create_actor_embedded_documents", arguments: { actorUuid: "Actor.ada", documentType: "Item", documents: [{ name: "Rope", type: "loot" }] } });
+  await client.callTool({ name: "foundry_update_actor_embedded_documents", arguments: { actorUuid: "Actor.ada", documentType: "Item", documents: [{ _id: "rope-1", name: "Silk Rope" }] } });
+  await client.callTool({ name: "foundry_delete_actor_embedded_documents", arguments: { actorUuid: "Actor.ada", documentType: "Item", documentIds: ["rope-1"] } });
   const error = await client.callTool({ name: "foundry_delete_entity", arguments: { uuid: "Actor.denied" } });
   assert.equal(error.isError, true);
 
@@ -74,7 +78,11 @@ try {
   assert.equal(requests[1].headers["x-api-key"], "smoke-test-key");
   assert.deepEqual(JSON.parse(requests[1].body), { entityType: "Actor", data: { name: "Ada" } });
   assert.deepEqual(JSON.parse(requests[2].body), { data: { name: "New name" } });
-  assert.equal(requests[4].url, "/delete?clientId=default-client&uuid=Actor.denied");
+  assert.deepEqual(JSON.parse(requests[4].body), { uuid: "Actor.ada", data: { items: [{ name: "Rope", type: "loot" }] } });
+  assert.equal(requests[5].url, "/update?clientId=default-client&uuid=Actor.ada.Item.rope-1");
+  assert.deepEqual(JSON.parse(requests[5].body), { data: { name: "Silk Rope" } });
+  assert.equal(requests[6].url, "/delete?clientId=default-client&uuid=Actor.ada.Item.rope-1");
+  assert.equal(requests[7].url, "/delete?clientId=default-client&uuid=Actor.denied");
 } finally {
   await client.close();
   await new Promise((resolve, reject) => fixture.close((error) => error ? reject(error) : resolve()));
