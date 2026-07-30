@@ -35,7 +35,7 @@ This project supports the relay's optional `clientId` and `userId` request scopi
 command = "npx"
 args = [
   "--yes",
-  "github:zagushka/foundry-rest-api-mcp#v0.3.1"
+  "github:zagushka/foundry-rest-api-mcp#v0.4.0"
 ]
 
 [mcp_servers.foundry.env]
@@ -67,7 +67,7 @@ If Codex should inherit variables already available in its environment, use `env
 command = "npx"
 args = [
   "--yes",
-  "github:zagushka/foundry-rest-api-mcp#v0.3.1"
+  "github:zagushka/foundry-rest-api-mcp#v0.4.0"
 ]
 env_vars = [
   "FOUNDRY_REST_API_BASE_URL",
@@ -86,6 +86,7 @@ All exposed tools begin with `foundry_` and publish typed MCP parameters. Reques
 | --- | --- | --- |
 | World content and folders | List worlds; inspect, search, create, update, and delete entities and folders | `clients:read`, `structure:read`, `structure:write`, `entity:read`, `entity:write`, `search` |
 | Actor inventory and effects | Add, update, and delete embedded `Item` and `ActiveEffect` documents | `entity:write`, `effects:write` |
+| Files | Browse file sources, download files, and upload base64-encoded files | `file:read`, `file:write` |
 | Scenes and canvas | Manage scenes, canvas documents, token movement, selection, and distance measurement | `scene:read`, `scene:write`, `canvas:read`, `canvas:write` |
 | Encounters and effects | Read and manage combats, combatants, turns, and active effects | `encounter:read`, `encounter:manage`, `effects:read`, `effects:write` |
 | Table play | Roll dice and read, send, or delete chat messages | `roll:read`, `roll:execute`, `chat:read`, `chat:write` |
@@ -98,7 +99,7 @@ Use `foundry_create_actor_embedded_documents`, `foundry_update_actor_embedded_do
 
 The relay exposes no dedicated `Actor.createEmbeddedDocuments` route. For items, the create tool uses its supported actor `items` upsert; for effects, it uses the relay's effect endpoint. Updating and deleting target the embedded document UUIDs directly.
 
-The server deliberately does **not** expose D&D5e-specific operations, file management, Foundry-user management, sessions, macros, playlists, arbitrary JavaScript, relay authentication management, or SSE/WebSocket subscriptions. Use the upstream API directly when one of those capabilities is required.
+The server deliberately does **not** expose D&D5e-specific operations, Foundry-user management, sessions, macros, playlists, arbitrary JavaScript, relay authentication management, or SSE/WebSocket subscriptions. Use the upstream API directly when one of those capabilities is required.
 
 ## Local development
 

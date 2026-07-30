@@ -31,19 +31,20 @@ const transport = new StdioClientTransport({
   },
 });
 
-const client = new Client({ name: "foundry-rest-api-mcp-smoke-test", version: "0.3.1" });
+const client = new Client({ name: "foundry-rest-api-mcp-smoke-test", version: "0.4.0" });
 const expectedTools = [
   "foundry_add_effect", "foundry_add_to_encounter", "foundry_clear_chat", "foundry_create_canvas_documents",
   "foundry_create_actor_embedded_documents", "foundry_create_entity", "foundry_create_folder", "foundry_create_scene", "foundry_delete_actor_embedded_documents", "foundry_delete_canvas_document",
   "foundry_delete_chat_message", "foundry_delete_entity", "foundry_delete_folder", "foundry_delete_scene",
+  "foundry_download_file",
   "foundry_end_encounter", "foundry_get_canvas_documents", "foundry_get_effects", "foundry_get_entity",
   "foundry_get_folder", "foundry_get_last_roll", "foundry_get_scenes", "foundry_get_selected_tokens",
-  "foundry_get_structure", "foundry_list_chat_messages", "foundry_list_clients", "foundry_list_encounters",
+  "foundry_get_structure", "foundry_list_chat_messages", "foundry_list_clients", "foundry_list_encounters", "foundry_list_files",
   "foundry_list_rolls", "foundry_list_status_effects", "foundry_measure_distance", "foundry_move_token",
   "foundry_next_round", "foundry_next_turn", "foundry_previous_round", "foundry_previous_turn",
   "foundry_remove_effect", "foundry_remove_from_encounter", "foundry_roll", "foundry_search", "foundry_select_tokens",
   "foundry_send_chat_message", "foundry_start_encounter", "foundry_switch_scene", "foundry_update_canvas_document",
-  "foundry_update_actor_embedded_documents", "foundry_update_entity", "foundry_update_scene",
+  "foundry_update_actor_embedded_documents", "foundry_update_entity", "foundry_update_scene", "foundry_upload_file",
 ].sort();
 
 try {
@@ -66,6 +67,9 @@ try {
   await client.callTool({ name: "foundry_create_actor_embedded_documents", arguments: { actorUuid: "Actor.ada", documentType: "Item", documents: [{ name: "Rope", type: "loot" }] } });
   await client.callTool({ name: "foundry_update_actor_embedded_documents", arguments: { actorUuid: "Actor.ada", documentType: "Item", documents: [{ _id: "rope-1", name: "Silk Rope" }] } });
   await client.callTool({ name: "foundry_delete_actor_embedded_documents", arguments: { actorUuid: "Actor.ada", documentType: "Item", documentIds: ["rope-1"] } });
+  await client.callTool({ name: "foundry_list_files", arguments: { source: "data", path: "assets", recursive: true } });
+  await client.callTool({ name: "foundry_download_file", arguments: { source: "data", path: "assets/map.png", format: "base64" } });
+  await client.callTool({ name: "foundry_upload_file", arguments: { source: "data", path: "assets", filename: "note.txt", mimeType: "text/plain", fileData: "data:text/plain;base64,SGVsbG8=", overwrite: true } });
   const error = await client.callTool({ name: "foundry_delete_entity", arguments: { uuid: "Actor.denied" } });
   assert.equal(error.isError, true);
 
@@ -83,7 +87,11 @@ try {
   assert.equal(requests[5].url, "/update?clientId=default-client&uuid=Actor.ada.Item.rope-1");
   assert.deepEqual(JSON.parse(requests[5].body), { data: { name: "Silk Rope" } });
   assert.equal(requests[6].url, "/delete?clientId=default-client&uuid=Actor.ada.Item.rope-1");
-  assert.equal(requests[7].url, "/delete?clientId=default-client&uuid=Actor.denied");
+  assert.equal(requests[7].url, "/file-system?clientId=default-client&path=assets&source=data&recursive=true");
+  assert.equal(requests[8].url, "/download?clientId=default-client&path=assets%2Fmap.png&source=data&format=base64");
+  assert.equal(requests[9].url, "/upload?clientId=default-client&path=assets&filename=note.txt&source=data&mimeType=text%2Fplain");
+  assert.deepEqual(JSON.parse(requests[9].body), { fileData: "data:text/plain;base64,SGVsbG8=", overwrite: true });
+  assert.equal(requests[10].url, "/delete?clientId=default-client&uuid=Actor.denied");
 } finally {
   await client.close();
   await new Promise((resolve, reject) => fixture.close((error) => error ? reject(error) : resolve()));

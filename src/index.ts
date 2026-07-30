@@ -45,7 +45,7 @@ function textResult(value: string) {
   return { content: [{ type: "text" as const, text: value }] };
 }
 
-const server = new McpServer({ name: "foundry-rest-api-mcp", version: "0.3.1" });
+const server = new McpServer({ name: "foundry-rest-api-mcp", version: "0.4.0" });
 
 const scope = {
   clientId: z.string().optional().describe("Foundry client ID; defaults to FOUNDRY_CLIENT_ID."),
@@ -155,6 +155,11 @@ server.tool(
 tool("foundry_get_folder", "Get a folder and its contents by name.", { ...scope, name: z.string().min(1) }, "GET", "/get-folder", ["clientId", "userId", "name"]);
 tool("foundry_create_folder", "Create a Foundry folder.", { ...scope, name: z.string().min(1), folderType: z.string().min(1), parentFolderId: z.string().optional() }, "POST", "/create-folder", ["clientId", "userId"], "write");
 tool("foundry_delete_folder", "Delete a Foundry folder; deleteAll also deletes its contents.", { ...scope, folderId: z.string().min(1), deleteAll: z.boolean().optional() }, "DELETE", "/delete-folder", ["clientId", "userId", "folderId", "deleteAll"], "destructive");
+
+// Files
+tool("foundry_list_files", "List files and directories in a Foundry file source.", { ...scope, path: z.string().optional().describe("Path relative to the selected Foundry file source."), source: z.string().optional().describe("Foundry file source, such as data, systems, or modules."), recursive: z.boolean().optional() }, "GET", "/file-system", ["clientId", "userId", "path", "source", "recursive"]);
+tool("foundry_download_file", "Download a file from a Foundry file source.", { ...scope, path: z.string().min(1).describe("Full path to the file, relative to the selected source."), source: z.string().optional().describe("Foundry file source, such as data, systems, or modules."), format: z.enum(["binary", "base64"]).optional().describe("Response representation; use base64 when the file content must be consumed as text.") }, "GET", "/download", ["clientId", "userId", "path", "source", "format"]);
+tool("foundry_upload_file", "Upload a base64-encoded file or data URL to a Foundry file source.", { ...scope, path: z.string().optional().describe("Destination directory relative to the selected file source."), filename: z.string().min(1), source: z.string().optional().describe("Foundry file source, such as data, systems, or modules."), mimeType: z.string().optional(), overwrite: z.boolean().optional(), fileData: z.string().min(1).describe("Base64-encoded file content, optionally as a data URL.") }, "POST", "/upload", ["clientId", "userId", "path", "filename", "source", "mimeType"], "write");
 
 // Scenes and canvas documents
 tool("foundry_get_scenes", "Get one or more scenes.", { ...scope, sceneId: z.string().optional(), name: z.string().optional(), active: z.boolean().optional(), viewed: z.boolean().optional(), all: z.boolean().optional() }, "GET", "/scene", ["clientId", "userId", "sceneId", "name", "active", "viewed", "all"]);
