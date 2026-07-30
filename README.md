@@ -14,13 +14,15 @@ The server does not expose mutations, macro execution, chat posting, or arbitrar
 
 1. Install and pair the `foundry-rest-api` module with a relay.
 2. Create a scoped API key with only `clients:read`, `structure:read`, and `entity:read`.
-3. Copy `.env.example` to a secure location and fill in the values. The relay's HTTP URL is usually `http://localhost:3011` for local use; do not use the module's `wss://` URL here.
+3. Copy `.env.example` to `.env` and fill in the values. The relay's HTTP URL is usually `http://localhost:3011` for local use; do not use the module's `wss://` URL here.
 4. Install and compile:
 
 ```sh
 npm install
 npm run build
 ```
+
+To start it directly (useful for an MCP inspector), run `npm start`. The process uses stdio, so it waits for an MCP client rather than opening an HTTP port.
 
 ## Codex MCP configuration
 
