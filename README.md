@@ -1,20 +1,23 @@
 # Foundry REST API MCP
 
-A minimal, read-only [Model Context Protocol](https://modelcontextprotocol.io/) server for the [FoundryVTT REST API Relay](https://foundryrestapi.com/docs/intro).
+A [Model Context Protocol](https://modelcontextprotocol.io/) server for preparing Foundry worlds and running encounters through the [FoundryVTT REST API Relay](https://foundryrestapi.com/docs/intro).
 
 ## Included tools
 
-- `foundry_list_clients` — list connected Foundry worlds
-- `foundry_get_structure` — read folders and entity references
-- `foundry_get_entity` — get a document by Foundry UUID
+- World content — list worlds, inspect structure and entities, search, and create, update, or delete entities and folders.
+- Scenes and canvas — create, update, delete, and switch scenes; manage tokens, walls, lights, tiles, drawings, sounds, notes, templates, and regions.
+- Encounters and effects — start/end combat, control turns and rounds, change combatants, and manage active effects.
+- Table play — roll dice, read and write chat, select or move tokens, and measure distances.
 
-The server does not expose mutations, macro execution, chat posting, or arbitrary JavaScript execution.
+All tools are named `foundry_*`; use the MCP tool list for their typed parameters. Commands that change the world carry `readOnlyHint: false`; destructive deletions and chat clearing also carry `destructiveHint: true`.
+
+This compact server intentionally excludes D&D5e-specific actions, files, users, sessions, macros, playlists, arbitrary JavaScript, authentication management, and SSE/WebSocket subscriptions.
 
 ## Requirements
 
 - Node.js 20 or newer
 - A paired `foundry-rest-api` module and relay
-- A scoped API key with `clients:read`, `structure:read`, and `entity:read`
+- A scoped API key with the required relay permissions: `clients:read`, `structure:read`, `structure:write`, `entity:read`, `entity:write`, `search`, `scene:read`, `scene:write`, `canvas:read`, `canvas:write`, `encounter:read`, `encounter:manage`, `effects:read`, `effects:write`, `roll:read`, `roll:execute`, `chat:read`, and `chat:write`
 
 ## Install in Codex directly from GitHub
 
@@ -25,7 +28,7 @@ Add the following to your user-level `~/.codex/config.toml`:
 command = "npx"
 args = [
   "--yes",
-  "github:zagushka/foundry-rest-api-mcp#v0.1.0"
+  "github:zagushka/foundry-rest-api-mcp#v0.2.0"
 ]
 
 [mcp_servers.foundry.env]
@@ -53,12 +56,12 @@ env_vars = [
 ]
 ```
 
-The Git tag pins the installed version. Change `v0.1.0` when upgrading to a newer release.
+The Git tag pins the installed version. Change `v0.2.0` when upgrading to a newer release.
 
 ## Optional global installation
 
 ```sh
-npm install --global github:zagushka/foundry-rest-api-mcp#v0.1.0
+npm install --global github:zagushka/foundry-rest-api-mcp#v0.2.0
 ```
 
 After that, configure Codex with:
