@@ -36,8 +36,8 @@ args = ["/absolute/path/to/foundry-rest-api-mcp/dist/index.js"]
 [mcp_servers.foundry.env]
 FOUNDRY_REST_API_BASE_URL = "http://localhost:3011"
 FOUNDRY_REST_API_KEY = "replace-with-a-scoped-secret"
-# Optional when the key is bound to exactly one Foundry world.
-FOUNDRY_CLIENT_ID = ""
+# Optional. Omit this line when the key is bound to exactly one Foundry world.
+# FOUNDRY_CLIENT_ID = "fvtt_..."
 ```
 
 Restart Codex after changing its MCP configuration.

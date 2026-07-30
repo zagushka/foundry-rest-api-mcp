@@ -4,7 +4,7 @@ import { z } from "zod";
 
 const baseUrl = requiredEnv("FOUNDRY_REST_API_BASE_URL").replace(/\/$/, "");
 const apiKey = requiredEnv("FOUNDRY_REST_API_KEY");
-const defaultClientId = process.env.FOUNDRY_CLIENT_ID;
+const defaultClientId = process.env.FOUNDRY_CLIENT_ID || undefined;
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
