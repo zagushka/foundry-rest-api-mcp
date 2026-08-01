@@ -1,6 +1,6 @@
 {
   "name": "foundry-rest-api-mcp",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "description": "MCP server for the FoundryVTT REST API Relay",
   "license": "MIT",
@@ -33,6 +33,7 @@
     "start:env": "node --env-file=.env dist/index.js",
     "check": "tsc -p tsconfig.json --noEmit",
     "test": "npm run check && npm run build && node test/smoke.mjs",
+    "test:private-bot-reply": "npm run build && node test/private-bot-reply.integration.mjs",
     "prepare": "npm run build"
   },
   "engines": {

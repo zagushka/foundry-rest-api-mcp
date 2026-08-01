@@ -45,7 +45,22 @@ function textResult(value: string) {
   return { content: [{ type: "text" as const, text: value }] };
 }
 
-const server = new McpServer({ name: "foundry-rest-api-mcp", version: "0.4.0" });
+function parseJson(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    throw new Error("Foundry REST API returned invalid JSON.");
+  }
+}
+
+/** The relay wraps route results in { data }; accept either documented shape. */
+function resultData(value: unknown): unknown {
+  return value && typeof value === "object" && "data" in value
+    ? (value as { data: unknown }).data
+    : value;
+}
+
+const server = new McpServer({ name: "foundry-rest-api-mcp", version: "0.5.0" });
 
 const scope = {
   clientId: z.string().optional().describe("Foundry client ID; defaults to FOUNDRY_CLIENT_ID."),
@@ -88,8 +103,52 @@ function tool(
   });
 }
 
-server.tool("foundry_list_clients", "List Foundry VTT worlds connected to the relay.", {}, annotations.read, async () =>
+server.tool("foundry_list_clients", "List Foundry VTT worlds connected to the relay, including their connection status and Foundry version.", {}, annotations.read, async () =>
   textResult(await request("GET", "/clients")),
+);
+server.tool("foundry_get_current_client", "Get the relay's currently resolved Foundry world. With a scoped key this identifies its clientId without FOUNDRY_CLIENT_ID.", {}, annotations.read, async () =>
+  textResult(await request("GET", "/clients")),
+);
+
+// Users. The relay enforces that these are GM-only operations.
+server.tool(
+  "foundry_list_users",
+  "List Foundry users as id, name, role, isGM, active, and avatar. Requires relay scope user:read and GM access; clientId is auto-resolved for a scoped key.",
+  { clientId: z.string().optional().describe("Foundry client ID; omit when the API key is scoped to one world.") },
+  annotations.read,
+  async ({ clientId }) => {
+    const response = parseJson(await request("GET", "/users", omitUndefined({ clientId: clientId ?? defaultClientId })));
+    const data = resultData(response);
+    if (!Array.isArray(data)) throw new Error("Foundry REST API did not return a user list.");
+    const users = data.map((item) => {
+      const user = item as Record<string, unknown>;
+      return omitUndefined({ id: user.id, name: user.name, role: user.role, isGM: user.isGM, active: user.active, avatar: user.avatar });
+    });
+    return textResult(JSON.stringify(users));
+  },
+);
+server.tool(
+  "foundry_create_user",
+  "Create a Foundry service or bot user. Requires relay scope user:write and GM access. The tool never accepts, returns, or logs a password.",
+  {
+    clientId: z.string().optional().describe("Foundry client ID; omit when the API key is scoped to one world."),
+    name: z.string().min(1),
+    role: z.number().int().min(0).max(4),
+    active: z.boolean().optional(),
+    avatar: z.string().min(1).optional(),
+    color: z.string().min(1).optional(),
+  },
+  annotations.write,
+  async ({ clientId, name, role, active, avatar, color }) => {
+    const response = parseJson(await request("POST", "/user", omitUndefined({ clientId: clientId ?? defaultClientId }), omitUndefined({ name, role, active, avatar, color })));
+    const data = resultData(response);
+    if (!data || typeof data !== "object" || typeof (data as { id?: unknown }).id !== "string") {
+      throw new Error("Foundry REST API did not return a created user ID.");
+    }
+    // Return an intentionally small allow-list, so a future relay response cannot expose credentials.
+    const user = data as Record<string, unknown>;
+    return textResult(JSON.stringify(omitUndefined({ id: user.id, name: user.name, role: user.role, active: user.active, avatar: user.avatar, color: user.color })));
+  },
 );
 
 tool(
@@ -194,6 +253,32 @@ tool("foundry_get_last_roll", "Get the latest roll.", scope, "GET", "/lastroll",
 tool("foundry_list_rolls", "Get recent rolls.", { ...scope, limit: z.number().int().positive().optional() }, "GET", "/rolls", ["clientId", "userId", "limit"]);
 tool("foundry_list_chat_messages", "Get chat messages with optional pagination and filters.", { ...scope, limit: z.number().int().positive().optional(), offset: z.number().int().nonnegative().optional(), chatType: z.number().int().optional(), speaker: z.string().optional() }, "GET", "/chat", ["clientId", "userId", "limit", "offset", "chatType", "speaker"]);
 tool("foundry_send_chat_message", "Create a chat message.", { ...scope, content: z.string().min(1), whisper: z.array(z.string()).optional(), speaker: z.string().optional(), alias: z.string().optional(), chatType: z.number().int().optional(), flavor: z.string().optional() }, "POST", "/chat", ["clientId", "userId"], "write");
+server.tool(
+  "foundry_send_chat_as_user",
+  "Create a chat message as a Foundry user and verify the returned ChatMessage.author.id. The relay permits this only for the API key's scoped user, or for a GM key; scoped keys cannot be overridden.",
+  {
+    clientId: z.string().optional().describe("Foundry client ID; omit when the API key is scoped to one world."),
+    userId: z.string().min(1).describe("Foundry user ID for the message author. The relay must reject it unless it matches the scoped API-key user or the key has GM access."),
+    content: z.string().min(1),
+    whisper: z.array(z.string()).optional().describe("Recipient Foundry user IDs. For a private reply, pass only the originating player."),
+    speaker: z.string().optional(),
+    alias: z.string().optional(),
+    chatType: z.number().int().optional().describe("Use 3 for a Whisper."),
+  },
+  annotations.write,
+  async ({ clientId, userId, content, whisper, speaker, alias, chatType }) => {
+    const responseText = await request("POST", "/chat", omitUndefined({ clientId: clientId ?? defaultClientId, userId }), omitUndefined({ content, whisper, speaker, alias, chatType }));
+    const response = parseJson(responseText);
+    const message = resultData(response);
+    const authorId = message && typeof message === "object"
+      ? (message as { author?: { id?: unknown } }).author?.id
+      : undefined;
+    if (authorId !== userId) {
+      throw new Error(`Foundry REST API created a chat message with author.id=${String(authorId)}, expected ${userId}.`);
+    }
+    return textResult(responseText);
+  },
+);
 tool("foundry_delete_chat_message", "Delete one chat message.", { ...scope, messageId: z.string().min(1) }, "DELETE", "/chat/:messageId", ["clientId", "userId"], "destructive");
 tool("foundry_clear_chat", "Permanently clear all chat messages.", scope, "DELETE", "/chat", ["clientId", "userId"], "destructive");
 

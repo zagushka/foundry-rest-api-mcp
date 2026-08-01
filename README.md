@@ -35,7 +35,7 @@ This project supports the relay's optional `clientId` and `userId` request scopi
 command = "npx"
 args = [
   "--yes",
-  "github:zagushka/foundry-rest-api-mcp#v0.4.0"
+  "github:zagushka/foundry-rest-api-mcp#v0.5.0"
 ]
 
 [mcp_servers.foundry.env]
@@ -67,7 +67,7 @@ If Codex should inherit variables already available in its environment, use `env
 command = "npx"
 args = [
   "--yes",
-  "github:zagushka/foundry-rest-api-mcp#v0.4.0"
+  "github:zagushka/foundry-rest-api-mcp#v0.5.0"
 ]
 env_vars = [
   "FOUNDRY_REST_API_BASE_URL",
@@ -84,7 +84,8 @@ All exposed tools begin with `foundry_` and publish typed MCP parameters. Reques
 
 | Tool group | Capabilities | Relay scopes |
 | --- | --- | --- |
-| World content and folders | List worlds; inspect, search, create, update, and delete entities and folders | `clients:read`, `structure:read`, `structure:write`, `entity:read`, `entity:write`, `search` |
+| World content and folders | Inspect connected worlds; inspect, search, create, update, and delete entities and folders | `clients:read`, `structure:read`, `structure:write`, `entity:read`, `entity:write`, `search` |
+| Users | List users, create an isolated bot/service user | `user:read`, `user:write` (create is GM-only) |
 | Actor inventory and effects | Add, update, and delete embedded `Item` and `ActiveEffect` documents | `entity:write`, `effects:write` |
 | Files | Browse file sources, download files, and upload base64-encoded files | `file:read`, `file:write` |
 | Scenes and canvas | Manage scenes, canvas documents, token movement, selection, and distance measurement | `scene:read`, `scene:write`, `canvas:read`, `canvas:write` |
@@ -99,7 +100,26 @@ Use `foundry_create_actor_embedded_documents`, `foundry_update_actor_embedded_do
 
 The relay exposes no dedicated `Actor.createEmbeddedDocuments` route. For items, the create tool uses its supported actor `items` upsert; for effects, it uses the relay's effect endpoint. Updating and deleting target the embedded document UUIDs directly.
 
-The server deliberately does **not** expose D&D5e-specific operations, Foundry-user management, sessions, macros, playlists, arbitrary JavaScript, relay authentication management, or SSE/WebSocket subscriptions. Use the upstream API directly when one of those capabilities is required.
+### External bot users and private replies
+
+Use `foundry_list_users` to find the Foundry user ID for `FOUNDRY_BOT_USER_ID`; the relay resolves `clientId` automatically when the API key is locked to one world. `foundry_create_user` is available only to a GM key with `user:write`; it accepts no password and returns only a safe subset of user fields.
+
+Use `foundry_get_current_client` (or `foundry_list_clients` for more than one connected world) to diagnose the resolved `clientId`, world ID/title, Foundry version, and connection status without setting `FOUNDRY_CLIENT_ID` manually.
+
+For every bot reply use `foundry_send_chat_as_user`, not the generic chat tool. It sends the requested `userId` to the relay and rejects a response whose `ChatMessage.author.id` differs. The relay is the authorization boundary: a scoped API key forcibly replaces `userId`, so callers cannot impersonate another user; an unscoped GM key may choose an author.
+
+For a private reply, pass `chatType: 3` and `whisper: [originatingPlayerUserId]`. The optional live test verifies the complete flow, including invisibility to an unrelated player:
+
+```sh
+FOUNDRY_REST_API_BASE_URL=https://relay.example \
+FOUNDRY_BOT_API_KEY=... FOUNDRY_PLAYER_API_KEY=... FOUNDRY_OTHER_PLAYER_API_KEY=... \
+FOUNDRY_BOT_USER_ID=... FOUNDRY_PLAYER_USER_ID=... \
+npm run test:private-bot-reply
+```
+
+It intentionally creates two Whisper messages and does not remove them. Use test-world scoped keys with `chat:write` for the bot/player and `chat:read` for the unrelated-player visibility check.
+
+The server deliberately does **not** expose D&D5e-specific operations, sessions, macros, playlists, arbitrary JavaScript, relay authentication management, or SSE/WebSocket subscriptions. Use the upstream API directly when one of those capabilities is required.
 
 ## Local development
 

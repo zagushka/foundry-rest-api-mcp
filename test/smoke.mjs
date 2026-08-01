@@ -9,6 +9,23 @@ const fixture = createServer(async (request, response) => {
   let body = "";
   for await (const chunk of request) body += chunk;
   requests.push({ method: request.method, url: request.url, headers: request.headers, body });
+  if (request.method === "GET" && request.url?.startsWith("/users")) {
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ data: [{ id: "bot-1", name: "Bot", role: 1, isGM: false, active: true, avatar: "bot.png" }] }));
+    return;
+  }
+  if (request.method === "POST" && request.url?.startsWith("/user")) {
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ data: { id: "bot-1", name: "Bot", role: 1, active: true, avatar: "bot.png", password: "must-not-leak" } }));
+    return;
+  }
+  if (request.method === "POST" && request.url?.startsWith("/chat")) {
+    const bodyData = JSON.parse(body);
+    const userId = new URL(request.url, "http://localhost").searchParams.get("userId");
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ data: { id: "message-1", content: bodyData.content, author: { id: userId, name: "Bot" }, whisper: bodyData.whisper ?? [], type: bodyData.chatType === 3 ? "whisper" : "base" } }));
+    return;
+  }
   if (request.url?.startsWith("/delete")) {
     response.writeHead(403, { "content-type": "application/json" });
     response.end('{"error":"denied"}');
@@ -31,7 +48,7 @@ const transport = new StdioClientTransport({
   },
 });
 
-const client = new Client({ name: "foundry-rest-api-mcp-smoke-test", version: "0.4.0" });
+const client = new Client({ name: "foundry-rest-api-mcp-smoke-test", version: "0.5.0" });
 const expectedTools = [
   "foundry_add_effect", "foundry_add_to_encounter", "foundry_clear_chat", "foundry_create_canvas_documents",
   "foundry_create_actor_embedded_documents", "foundry_create_entity", "foundry_create_folder", "foundry_create_scene", "foundry_delete_actor_embedded_documents", "foundry_delete_canvas_document",
@@ -39,12 +56,13 @@ const expectedTools = [
   "foundry_download_file",
   "foundry_end_encounter", "foundry_get_canvas_documents", "foundry_get_effects", "foundry_get_entity",
   "foundry_get_folder", "foundry_get_last_roll", "foundry_get_scenes", "foundry_get_selected_tokens",
-  "foundry_get_structure", "foundry_list_chat_messages", "foundry_list_clients", "foundry_list_encounters", "foundry_list_files",
+  "foundry_get_structure", "foundry_get_current_client", "foundry_list_chat_messages", "foundry_list_clients", "foundry_list_encounters", "foundry_list_files", "foundry_list_users",
   "foundry_list_rolls", "foundry_list_status_effects", "foundry_measure_distance", "foundry_move_token",
   "foundry_next_round", "foundry_next_turn", "foundry_previous_round", "foundry_previous_turn",
   "foundry_remove_effect", "foundry_remove_from_encounter", "foundry_roll", "foundry_search", "foundry_select_tokens",
-  "foundry_send_chat_message", "foundry_start_encounter", "foundry_switch_scene", "foundry_update_canvas_document",
+  "foundry_send_chat_as_user", "foundry_send_chat_message", "foundry_start_encounter", "foundry_switch_scene", "foundry_update_canvas_document",
   "foundry_update_actor_embedded_documents", "foundry_update_entity", "foundry_update_scene", "foundry_upload_file",
+  "foundry_create_user",
 ].sort();
 
 try {
@@ -92,6 +110,24 @@ try {
   assert.equal(requests[9].url, "/upload?clientId=default-client&path=assets&filename=note.txt&source=data&mimeType=text%2Fplain");
   assert.deepEqual(JSON.parse(requests[9].body), { fileData: "data:text/plain;base64,SGVsbG8=", overwrite: true });
   assert.equal(requests[10].url, "/delete?clientId=default-client&uuid=Actor.denied");
+
+  const users = await client.callTool({ name: "foundry_list_users", arguments: {} });
+  assert.equal(users.isError, undefined);
+  assert.deepEqual(JSON.parse(users.content[0].text), [{ id: "bot-1", name: "Bot", role: 1, isGM: false, active: true, avatar: "bot.png" }]);
+  const createUser = await client.callTool({ name: "foundry_create_user", arguments: { name: "Bot", role: 1, active: true, avatar: "bot.png" } });
+  assert.equal(createUser.isError, undefined);
+  assert.deepEqual(JSON.parse(createUser.content[0].text), { id: "bot-1", name: "Bot", role: 1, active: true, avatar: "bot.png" });
+  const privateReply = await client.callTool({ name: "foundry_send_chat_as_user", arguments: { userId: "bot-1", content: "Private reply", whisper: ["player-1"], chatType: 3 } });
+  assert.equal(privateReply.isError, undefined);
+  const privateReplyData = JSON.parse(privateReply.content[0].text).data;
+  assert.equal(privateReplyData.author.id, "bot-1");
+  assert.deepEqual(privateReplyData.whisper, ["player-1"]);
+  assert.equal(privateReplyData.type, "whisper");
+  assert.equal(requests[11].url, "/users?clientId=default-client");
+  assert.equal(requests[12].url, "/user?clientId=default-client");
+  assert.deepEqual(JSON.parse(requests[12].body), { name: "Bot", role: 1, active: true, avatar: "bot.png" });
+  assert.equal(requests[13].url, "/chat?clientId=default-client&userId=bot-1");
+  assert.deepEqual(JSON.parse(requests[13].body), { content: "Private reply", whisper: ["player-1"], chatType: 3 });
 } finally {
   await client.close();
   await new Promise((resolve, reject) => fixture.close((error) => error ? reject(error) : resolve()));
